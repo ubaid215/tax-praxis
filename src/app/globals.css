@@ -1,26 +1,225 @@
 @import "tailwindcss";
 
+/* ================================
+   DESIGN TOKENS — TAX / FINANCE
+   ================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core Colors */
+  --color-blue-900: #0b1f3a;   /* authority / headers */
+  --color-blue-700: #0f3d91;   /* primary brand */
+  --color-blue-500: #2563eb;   /* CTAs */
+  --color-blue-100: #e8f0ff;   /* soft backgrounds */
+
+  --color-black: #0f172a;
+  --color-white: #ffffff;
+
+  /* Soft UI Backgrounds */
+  --color-bg-main: #ffffff;
+  --color-bg-soft: #F9FAFB;
+  --color-bg-card: #ffffff;
+
+  /* Text */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+
+  /* Borders */
+  --color-border-soft: #e2e8f0;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(
+    135deg,
+    #0f3d91 0%,
+    #2563eb 100%
+  );
+
+  --gradient-soft: linear-gradient(
+    180deg,
+    #FCFAF8 0%,
+    #ffffff 100%
+  );
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 40px rgba(15, 23, 42, 0.12);
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ================================
+   BASE STYLES
+   ================================ */
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+
+
+/* ================================
+   UTILITY CLASSES
+   ================================ */
+
+/* Backgrounds */
+.bg-soft {
+  background: var(--color-bg-soft);
+}
+
+.bg-gradient-primary {
+  background: var(--gradient-primary);
+}
+
+.bg-gradient-soft {
+  background: var(--gradient-soft);
+}
+
+/* Text */
+.text-primary {
+  color: var(--color-blue-700);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Cards */
+.card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-soft);
+  box-shadow: var(--shadow-md);
+  border-radius: 12px;
+}
+
+/* Buttons */
+.btn-primary {
+  background: var(--gradient-primary);
+  color: var(--color-white);
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+  cursor: pointer;
+}
+
+button{
+  cursor:pointer;
+}
+
+/* Links */
+
+.link:hover {
+  color: var(--color-blue-500);
+}
+
+.nav-anchor {
+  position: relative;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  padding: 0.1rem 0;
+}
+
+.nav-anchor .line {
+  width: 100%;
+  height: 1px;
+  background-color: var(--color-blue-700);
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  transition: all cubic-bezier(0.19, 1, 0.22, 1) 0.6s;
+}
+
+.nav-anchor .line.line-1 {
+  left: 0;
+  width: 0%;
+  transition-delay: 0.2s;
+}
+
+.nav-anchor .line.line-2 {
+  right: 0;
+  width: 100%;
+}
+
+.nav-anchor:hover .line.line-2 {
+  width: 0;
+}
+
+.nav-anchor:hover .line.line-1 {
+  width: 100%;
+}
+
+/* Active state */
+.nav-anchor.active .line.line-2 {
+  width: 0;
+}
+
+.nav-anchor.active .line.line-1 {
+  width: 100%;
+}
+
+.nav-anchor * {
+  box-sizing: border-box;
+}
+
+/* Hero Section */
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0) translateX(-50%);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-50%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+
+/* date picker animation */
+.rdp {
+  --rdp-cell-size: 32px;
+  --rdp-accent-color: #3b82f6;
+  --rdp-background-color: #f1f5f9;
+  margin: 0;
+}
+
+.rdp-day_selected {
+  background-color: var(--rdp-accent-color) !important;
+  color: white !important;
+}
+
+.rdp-day_selected:hover {
+  background-color: #2563eb !important;
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: #f8fafc !important;
 }
