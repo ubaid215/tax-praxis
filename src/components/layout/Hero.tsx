@@ -32,7 +32,7 @@ const Hero = () => {
             </p>
 
             {/* Primary Actions */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex  gap-4">
               <Link href={"/personal"}>
               <button className="px-8 py-4 bg-[#111827] text-white font-semibold rounded-xl hover:bg-black transition-all shadow-lg active:scale-95 text-sm md:text-base text-center">
                 Personal

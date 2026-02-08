@@ -73,7 +73,7 @@ const VisionPage = () => {
                       src="/vision/expertise.webp"
                       alt="Focusing on progress, not paperwork"
                       fill
-                      className="object-cover"
+                      className="object-cover rounded-2xl"
                       priority
                     />
                   </div>
@@ -251,7 +251,7 @@ const VisionPage = () => {
                   {/* Right - Image/Visual */}
                   <div className="relative min-h-[400px] lg:min-h-[600px]">
                     <Image
-                      src="/vision/modern-mindset.webp"
+                      src="/vision/expertise.webp"
                       alt="Modern mindset in traditional industry"
                       fill
                       className="object-cover"
@@ -270,12 +270,12 @@ const VisionPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
                 {/* Left - Image */}
                 <div className="relative order-2 lg:order-1">
-                  <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
+                  <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-2xl">
                     <Image
-                      src="/vision/human-approach.webp"
+                      src="/vision/expertise.webp"
                       alt="Human approach to finance"
                       fill
-                      className="object-cover"
+                      className="object-cover rounded-2xl"
                     />
                   </div>
                   

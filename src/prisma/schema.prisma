@@ -1,0 +1,388 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TENANT & AUTH
+// ============================================
+
+model Tenant {
+  id                    String    @id @default(cuid())
+  name                  String
+  slug                  String    @unique
+  
+  // Google OAuth
+  googleClientId        String?
+  googleClientSecret    String?   @db.Text // Encrypted
+  googleRefreshToken    String?   @db.Text // Encrypted
+  googleCalendarId      String?   // Primary calendar to sync
+  
+  // Odoo Integration
+  odooUrl               String?
+  odooDatabase          String?
+  odooUsername          String?
+  odooApiKey            String?   @db.Text // Encrypted
+  
+  // Configuration
+  timezone              String    @default("UTC")
+  businessHours         Json?     // {monday: {start: "09:00", end: "17:00"}}
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  bookings              Booking[]
+  oauthTokens           OAuthToken[]
+  auditLogs             AuditLog[]
+  webhookChannels       WebhookChannel[]
+  
+  @@index([slug])
+}
+
+model OAuthToken {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  provider          String    // "google", "microsoft"
+  accessToken       String    @db.Text // Encrypted
+  refreshToken      String?   @db.Text // Encrypted
+  expiresAt         DateTime
+  scope             String[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([tenantId, provider])
+  @@index([expiresAt])
+}
+
+// ============================================
+// BOOKING CORE
+// ============================================
+
+model Booking {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  
+  // Customer Details
+  customerName      String
+  customerEmail     String
+  customerPhone     String?
+  
+  // Time Slot
+  startTime         DateTime
+  endTime           DateTime
+  timezone          String    @default("UTC")
+  
+  // Meeting Details
+  title             String
+  description       String?   @db.Text
+  meetUrl           String?   // Generated Google Meet link
+  
+  // Status Management
+  status            BookingStatus @default(PENDING)
+  sourceSystem      SourceSystem  @default(WEBSITE)
+  
+  // Idempotency
+  idempotencyKey    String    @unique
+  
+  // Metadata
+  metadata          Json?     // Custom fields
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  cancelledAt       DateTime?
+  
+  // Relations
+  syncMappings      ExternalSyncMapping[]
+  syncJobs          SyncJob[]
+  auditLogs         AuditLog[]
+  
+  @@index([tenantId, startTime])
+  @@index([tenantId, status])
+  @@index([customerEmail])
+  @@index([idempotencyKey])
+}
+
+enum BookingStatus {
+  PENDING           // Initial creation
+  SYNCING           // Sync jobs in progress
+  SYNCED            // All systems synchronized
+  SYNC_FAILED       // One or more sync failures
+  CONFIRMED         // Customer confirmed
+  CANCELLED         // Booking cancelled
+  COMPLETED         // Meeting completed
+}
+
+enum SourceSystem {
+  WEBSITE
+  GOOGLE_CALENDAR
+  ODOO
+  ADMIN_DASHBOARD
+  API
+}
+
+// ============================================
+// SYNC INFRASTRUCTURE
+// ============================================
+
+model ExternalSyncMapping {
+  id                String    @id @default(cuid())
+  bookingId         String
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  externalSystem    ExternalSystem
+  externalId        String    // google_event_id, odoo_appointment_id
+  externalUrl       String?   // Direct link to external resource
+  
+  // Sync Metadata
+  lastSyncedAt      DateTime  @default(now())
+  syncStatus        SyncStatus @default(PENDING)
+  errorMessage      String?   @db.Text
+  retryCount        Int       @default(0)
+  
+  // Data Snapshot (for diff detection)
+  lastKnownState    Json?     // Snapshot of external data
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([bookingId, externalSystem])
+  @@index([externalSystem, externalId])
+}
+
+enum ExternalSystem {
+  GOOGLE_CALENDAR
+  ODOO
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  RETRY_SCHEDULED
+}
+
+model SyncJob {
+  id                String    @id @default(cuid())
+  bookingId         String
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  targetSystem      ExternalSystem
+  operation         SyncOperation
+  
+  status            SyncStatus @default(PENDING)
+  priority          Int       @default(5) // 1-10, higher = more urgent
+  
+  // Retry Logic
+  maxRetries        Int       @default(3)
+  currentRetry      Int       @default(0)
+  nextRetryAt       DateTime?
+  
+  // Payload
+  payload           Json      // Data to sync
+  
+  // Execution
+  startedAt         DateTime?
+  completedAt       DateTime?
+  errorMessage      String?   @db.Text
+  
+  // Tracing
+  correlationId     String    // For distributed tracing
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([status, nextRetryAt])
+  @@index([targetSystem, status])
+  @@index([correlationId])
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+  REFRESH
+}
+
+// ============================================
+// WEBHOOK INFRASTRUCTURE
+// ============================================
+
+model WebhookChannel {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  provider          String    // "google", "odoo"
+  channelId         String    // Google channel ID
+  resourceId        String    // Google resource ID
+  resourceUri       String?
+  
+  expiresAt         DateTime
+  isActive          Boolean   @default(true)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  webhookEvents     WebhookEvent[]
+  
+  @@unique([provider, channelId])
+  @@index([expiresAt, isActive])
+}
+
+model WebhookEvent {
+  id                String    @id @default(cuid())
+  channelId         String?
+  channel           WebhookChannel? @relation(fields: [channelId], references: [id])
+  
+  provider          String
+  eventType         String    // "sync", "update", "delete"
+  
+  // Raw Data
+  rawPayload        Json
+  headers           Json?
+  
+  // Processing
+  processedAt       DateTime?
+  processingStatus  WebhookProcessingStatus @default(PENDING)
+  errorMessage      String?   @db.Text
+  retryCount        Int       @default(0)
+  
+  // Deduplication
+  externalEventId   String?   // Provider's event ID
+  
+  receivedAt        DateTime  @default(now())
+  
+  @@index([processingStatus, receivedAt])
+  @@index([externalEventId])
+  @@index([provider, eventType])
+}
+
+enum WebhookProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DUPLICATE
+}
+
+// ============================================
+// AUDIT & COMPLIANCE
+// ============================================
+
+model AuditLog {
+  id                String    @id @default(cuid())
+  
+  // Context
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  bookingId         String?
+  booking           Booking?  @relation(fields: [bookingId], references: [id])
+  
+  // Event Classification
+  eventType         AuditEventType
+  sourceSystem      SourceSystem
+  targetSystem      ExternalSystem?
+  
+  // Actor
+  userId            String?   // If user-initiated
+  systemActor       String?   // If system-initiated (e.g., "sync-worker-3")
+  ipAddress         String?
+  userAgent         String?   @db.Text
+  
+  // Operation Details
+  operation         String    // "CREATE_BOOKING", "UPDATE_TIME", "CANCEL"
+  
+  // Data Snapshots
+  previousState     Json?     // Before mutation
+  newState          Json?     // After mutation
+  diff              Json?     // Calculated difference
+  
+  // Technical Metadata
+  correlationId     String    // Links related events
+  traceId           String?   // Distributed tracing
+  
+  httpMethod        String?
+  httpPath          String?
+  httpStatus        Int?
+  
+  requestPayload    Json?
+  responsePayload   Json?
+  
+  // Retry & Error Handling
+  retryCount        Int       @default(0)
+  errorDetails      Json?
+  
+  // Idempotency
+  idempotencyKey    String?
+  
+  timestamp         DateTime  @default(now())
+  
+  @@index([tenantId, timestamp])
+  @@index([bookingId, timestamp])
+  @@index([correlationId])
+  @@index([eventType, timestamp])
+  @@index([sourceSystem, targetSystem])
+}
+
+enum AuditEventType {
+  BOOKING_CREATED
+  BOOKING_UPDATED
+  BOOKING_CANCELLED
+  BOOKING_COMPLETED
+  
+  SYNC_STARTED
+  SYNC_SUCCESS
+  SYNC_FAILURE
+  SYNC_RETRY
+  
+  WEBHOOK_RECEIVED
+  WEBHOOK_PROCESSED
+  
+  TOKEN_REFRESHED
+  TOKEN_EXPIRED
+  
+  ADMIN_ACTION
+  API_REQUEST
+  
+  CONFLICT_DETECTED
+  CONFLICT_RESOLVED
+}
+
+// ============================================
+// REPORTING & ANALYTICS
+// ============================================
+
+model SyncReport {
+  id                String    @id @default(cuid())
+  tenantId          String
+  
+  reportDate        DateTime  @db.Date
+  
+  // Metrics
+  totalBookings     Int
+  successfulSyncs   Int
+  failedSyncs       Int
+  avgSyncTimeMs     Float
+  
+  // Per-System Breakdown
+  googleSyncSuccess Int
+  googleSyncFailed  Int
+  odooSyncSuccess   Int
+  odooSyncFailed    Int
+  
+  generatedAt       DateTime  @default(now())
+  
+  @@unique([tenantId, reportDate])
+  @@index([reportDate])
+}

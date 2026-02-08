@@ -1,6 +1,6 @@
 
 
-import { Linkedin, Twitter, Facebook, Instagram, Phone, Mail, Users, Briefcase, Building, FileCheck, CreditCard, Shield } from 'lucide-react';
+import { Linkedin, Twitter, Facebook, Instagram, Phone, Mail, Users, Briefcase, Building, FileCheck, CreditCard, Shield, Calculator, TrendingUp, PieChart } from 'lucide-react';
 
 
 
@@ -212,3 +212,73 @@ export const navLinks = [
     href: "/fees",
   },
 ] as const;
+
+
+export const personalServices = [
+  {
+    id: 1,
+    title: "Tax Returns",
+    slug: "tax-returns",
+    subtitle: "Smart solutions customised to optimise your tax return",
+    description:
+      "Maximize your refunds with strategic tax planning and precision filing. We go beyond basic deductions to uncover every legitimate opportunity for tax savings.",
+    icon: Calculator,
+    features: [
+      "Personalized tax strategy development",
+      "Investment property tax optimization",
+      "Work-from-home expense maximization",
+      "Investment income tax minimization",
+      "Retirement contribution strategies",
+    ],
+  },
+  {
+    id: 2,
+    title: "General Insurance",
+    slug: "general-insurance",
+    subtitle: "We'll find the smartest insurance solution for you",
+    description:
+      "Comprehensive protection tailored to your unique circumstances. From personal assets to income protection, we secure what matters most.",
+    icon: Shield,
+    features: [
+      "Personal & family risk assessment",
+      "Income protection insurance",
+      "Life & trauma coverage tailored to you",
+      "Professional indemnity solutions",
+      "Health insurance optimization",
+    ],
+  },
+  {
+    id: 3,
+    title: "Financial Planning",
+    slug: "financial-planning",
+    subtitle:
+      "A smart financial plan is lifestyle insurance for you and your family",
+    description:
+      "Strategic roadmap to achieve your life goals. We create comprehensive plans that grow and protect your wealth through every life stage.",
+    icon: TrendingUp,
+    features: [
+      "Personal wealth roadmap creation",
+      "Retirement planning & projections",
+      "Education funding strategies",
+      "Estate planning & wealth transfer",
+      "Debt management optimization",
+    ],
+  },
+  {
+    id: 4,
+    title: "Self Managed Super Fund",
+    slug: "self-managed-superannuation-fund",
+    subtitle:
+      "Is a self managed superannuation fund a smart solution for you?",
+    description:
+      "Take control of your retirement savings. Our SMSF experts guide you through establishment, compliance, and investment strategy optimization.",
+    icon: PieChart,
+    features: [
+      "SMSF establishment & compliance",
+      "Investment strategy optimization",
+      "Property investment through SMSF",
+      "Pension phase planning",
+      "Ongoing administration & reporting",
+    ],
+  },
+];

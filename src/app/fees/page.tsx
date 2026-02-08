@@ -1,7 +1,13 @@
 "use client";
 import React, { useState, Suspense } from "react";
-import { serviceCategories, servicePackages, payrollRates, adhocRates } from "@/constants";
+import {
+  serviceCategories,
+  servicePackages,
+  payrollRates,
+  adhocRates,
+} from "@/constants";
 import LoadingSkeleton from "@/components/common/ServicesFeesSkeleton";
+import Link from "next/link";
 
 const ServiceFeesPage = () => {
   const [activeTab, setActiveTab] = useState("all");
@@ -27,7 +33,8 @@ const ServiceFeesPage = () => {
               </h1>
 
               <p className="text-base md:text-lg text-gray-500 leading-relaxed max-w-2xl mx-auto mb-8">
-                Clear, honest pricing with no hidden fees. Choose the services that fit your needs and budget.
+                Clear, honest pricing with no hidden fees. Choose the services
+                that fit your needs and budget.
               </p>
 
               {/* Quick Contact CTA */}
@@ -82,7 +89,7 @@ const ServiceFeesPage = () => {
                 .filter((cat) => activeTab === "all" || activeTab === cat.id)
                 .map((category, index) => {
                   const IconComponent = category.icon;
-                  
+
                   return (
                     <div
                       key={category.id}
@@ -152,7 +159,8 @@ const ServiceFeesPage = () => {
                   </span>
                 </h2>
                 <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                  Flexible packages to keep your accounts up-to-date and compliant
+                  Flexible packages to keep your accounts up-to-date and
+                  compliant
                 </p>
               </div>
 
@@ -170,10 +178,8 @@ const ServiceFeesPage = () => {
                       <p className="text-sm text-gray-300 mb-2">
                         {pkg.description}
                       </p>
-                      <p className="text-xs text-gray-400 mb-6">
-                        {pkg.cap}
-                      </p>
-                      
+                      <p className="text-xs text-gray-400 mb-6">{pkg.cap}</p>
+
                       <div className="mb-6">
                         <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
                           {pkg.fee}
@@ -192,7 +198,8 @@ const ServiceFeesPage = () => {
               </div>
 
               <p className="text-center text-sm text-gray-400 mt-8">
-                All packages include comprehensive account reconciliation and reporting
+                All packages include comprehensive account reconciliation and
+                reporting
               </p>
             </div>
           </div>
@@ -217,7 +224,8 @@ const ServiceFeesPage = () => {
                   </span>
                 </h2>
                 <p className="text-base md:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-                  Scalable payroll solutions based on your team size and payment frequency
+                  Scalable payroll solutions based on your team size and payment
+                  frequency
                 </p>
               </div>
 
@@ -226,7 +234,7 @@ const ServiceFeesPage = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-gradient-to-r from-blue-600 to-blue-700">
+                      <tr className="bg-gradient-primary">
                         <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider">
                           Employees
                         </th>
@@ -248,7 +256,8 @@ const ServiceFeesPage = () => {
                           className="hover:bg-blue-50 transition-colors"
                         >
                           <td className="px-6 py-5 text-sm md:text-base font-semibold text-gray-900">
-                            {rate.employees} {rate.employees === "1" ? "employee" : "employees"}
+                            {rate.employees}{" "}
+                            {rate.employees === "1" ? "employee" : "employees"}
                           </td>
                           <td className="px-6 py-5 text-right text-base md:text-lg font-bold text-blue-600">
                             {rate.weekly}
@@ -267,7 +276,8 @@ const ServiceFeesPage = () => {
 
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
                   <p className="text-xs md:text-sm text-gray-600 text-center">
-                    Includes payroll processing, payslips, and STP reporting. Additional fees may apply for complex payroll requirements.
+                    Includes payroll processing, payslips, and STP reporting.
+                    Additional fees may apply for complex payroll requirements.
                   </p>
                 </div>
               </div>
@@ -288,7 +298,8 @@ const ServiceFeesPage = () => {
                   </span>
                 </h2>
                 <p className="text-base md:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-                  Flexible hourly, daily, and weekly rates for custom projects and consultations
+                  Flexible hourly, daily, and weekly rates for custom projects
+                  and consultations
                 </p>
               </div>
 
@@ -319,14 +330,16 @@ const ServiceFeesPage = () => {
                         {rate.service}
                       </h3>
                     </div>
-                    
+
                     <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-4">
                       {rate.fee}
                     </div>
 
-                    <button className="w-full px-6 py-3 bg-gray-900 text-white font-semibold rounded-xl hover:border-2 hover:bg-white hover:text-black transition-all shadow-lg active:scale-95 text-sm">
-                      Get Started
-                    </button>
+                    <Link href={"/booking"}>
+                      <button className="w-full px-6 py-3 bg-gray-900 text-white font-semibold rounded-xl hover:border-2 hover:bg-white hover:text-black transition-all shadow-lg active:scale-95 text-sm">
+                        Get Started
+                      </button>
+                    </Link>
                   </div>
                 ))}
               </div>
@@ -342,16 +355,21 @@ const ServiceFeesPage = () => {
                 Not sure which service you need?
               </h2>
               <p className="text-base md:text-lg text-blue-100 mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed">
-                Schedule a free consultation and we&apos;ll help you find the perfect solution for your tax and accounting needs.
+                Schedule a free consultation and we&apos;ll help you find the
+                perfect solution for your tax and accounting needs.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="px-10 py-5 bg-white text-blue-600  font-bold rounded-xl hover:bg-gray-200 transition-all shadow-xl active:scale-95 text-base md:text-lg">
-                  Book Free Consultation
-                </button>
-                <button className="px-10 py-5 bg-gray-900 hover:bg-white  text-white hover:text-black font-bold rounded-xl border-2 border-white/30 transition-all active:scale-95 text-base md:text-lg">
-                  Contact Us
-                </button>
+                <Link href={"/booking"}>
+                  <button className="px-10 py-5 bg-white text-blue-600  font-bold rounded-xl hover:bg-gray-200 transition-all shadow-xl active:scale-95 text-base md:text-lg">
+                    Book Free Consultation
+                  </button>
+                </Link>
+                <Link href={"/contact"}>
+                  <button className="px-10 py-5 bg-gray-900 hover:bg-white  text-white hover:text-black font-bold rounded-xl border-2 border-white/30 transition-all active:scale-95 text-base md:text-lg">
+                    Contact Us
+                  </button>
+                </Link>
               </div>
             </div>
           </div>
