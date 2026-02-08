@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// =========== ENUMS =============
+
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum SyncSystem {
+  GOOGLE_CALENDAR
+  ODOO
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+
+// =========== USER =============
+
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(STAFF)
+
+  // Google Calendar Integration
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+
+  // Odoo Integration
+  odooUserId        Int?
+  odooApiKey        String?
+
+  bookings      Booking[]
+  availabilities Availability[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+// ========== AVAILABILITY ==============
+
+
+model Availability {
+  id       String   @id @default(uuid())
+  userId   String
+  date     DateTime // specific date (UTC)
+  startAt  DateTime
+  endAt    DateTime
+
+  // Google Calendar Integration
+  googleEventId String?
+
+  // Odoo Integration
+  odooResourceId Int?
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slots TimeSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+}
+
+
+// =========== TIME SLOTS =============
+
+
+model TimeSlot {
+  id             String   @id @default(uuid())
+  availabilityId String
+  startTime      DateTime
+  endTime        DateTime
+  isBooked       Boolean  @default(false)
+
+  availability Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  booking      Booking?
+
+  createdAt DateTime @default(now())
+
+  @@index([startTime, endTime])
+  @@index([availabilityId])
+}
+
+
+// =========== BOOKING ==============
+
+
+model Booking {
+  id       String        @id @default(uuid())
+  userId   String?       // nullable for public bookings
+  slotId   String        @unique
+
+  fullName String
+  email    String
+  phone    String
+  notes    String?
+
+  status   BookingStatus @default(CONFIRMED)
+  timezone String        // e.g. "Asia/Karachi"
+
+  // Google Calendar Integration
+  googleEventId  String?
+  googleSyncedAt DateTime?
+
+  // Odoo Integration
+  odooAppointmentId Int?
+  odooSyncedAt      DateTime?
+
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  slot     TimeSlot  @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  guests   Guest[]
+  syncLogs SyncLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+
+
+// ============ GUESTS ===============
+
+
+model Guest {
+  id        String @id @default(uuid())
+  bookingId String
+  email     String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([bookingId])
+}
+
+
+// SYNC LOG (Track Integration Syncs)
+
+
+model SyncLog {
+  id        String     @id @default(uuid())
+  bookingId String
+  system    SyncSystem
+  action    String     // "CREATE", "UPDATE", "DELETE"
+  status    SyncStatus
+  error     String?    @db.Text
+  metadata  Json?      // Store API response, event IDs, etc.
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([system])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ======= Google Calendar Integration
+
+model GoogleAuth {
+  id           Int      @id @default(autoincrement())
+  refreshToken String   // This is the KEY - lets you access calendar forever
+  calendarId   String   @default("primary")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+
+// ============ AUDIT LOG ==============
+
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entityId  String
+  entity    String
+  userId    String?
+  meta      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityId])
+  @@index([entity])
+  @@index([createdAt])
+}
