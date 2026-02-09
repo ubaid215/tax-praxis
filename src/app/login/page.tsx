@@ -30,9 +30,22 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/admin');
-      router.refresh();
+      // ✅ FIX: Store user in localStorage
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Also store in sessionStorage as backup
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+
+      console.log('✅ User stored in localStorage:', data.user);
+
+      // Small delay to ensure localStorage is written
+      setTimeout(() => {
+        router.push('/admin');
+        router.refresh();
+      }, 100);
+
     } catch (err) {
+      console.error('Login error:', err);
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }

@@ -10,8 +10,11 @@ interface IntegrationStatus {
   };
   odoo: {
     isConnected: boolean;
-    userId?: number;
+    url?: string;
+    database?: string;
+    username?: string;
     connectedAt?: string;
+    lastSyncedAt?: string;
   };
   syncStats: {
     google: {
@@ -30,6 +33,7 @@ interface IntegrationStatus {
 export default function IntegrationsPage() {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStatus();
@@ -44,6 +48,38 @@ export default function IntegrationsPage() {
       console.error('Failed to fetch integration status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDisconnect = async (service: 'google' | 'odoo') => {
+    if (!confirm(`Are you sure you want to disconnect ${service === 'google' ? 'Google Calendar' : 'Odoo'}?`)) {
+      return;
+    }
+
+    setDisconnecting(service);
+    
+    try {
+      const endpoint = service === 'google' 
+        ? '/api/google/disconnect' 
+        : '/api/odoo/disconnect';
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to disconnect');
+      }
+
+      // Refresh status
+      await fetchStatus();
+      
+      alert(`${service === 'google' ? 'Google Calendar' : 'Odoo'} disconnected successfully`);
+    } catch (error) {
+      console.error('Failed to disconnect:', error);
+      alert('Failed to disconnect. Please try again.');
+    } finally {
+      setDisconnecting(null);
     }
   };
 
@@ -79,7 +115,9 @@ export default function IntegrationsPage() {
           }
           stats={status?.syncStats.google}
           color="blue"
-          connectUrl="/api/auth/google"
+          connectUrl="/api/google/auth"
+          onDisconnect={() => handleDisconnect('google')}
+          isDisconnecting={disconnecting === 'google'}
         />
 
         {/* Odoo */}
@@ -91,12 +129,22 @@ export default function IntegrationsPage() {
           connectedAt={status?.odoo.connectedAt}
           details={
             status?.odoo.isConnected
-              ? `User ID: ${status.odoo.userId}`
+              ? `Database: ${status.odoo.database}`
               : 'Not configured'
+          }
+          extraDetails={
+            status?.odoo.isConnected
+              ? [
+                  { label: 'URL', value: status.odoo.url || 'N/A' },
+                  { label: 'Username', value: status.odoo.username || 'N/A' },
+                ]
+              : undefined
           }
           stats={status?.syncStats.odoo}
           color="purple"
-          connectUrl="/api/auth/odoo"
+          connectUrl="/api/odoo/connect"
+          onDisconnect={() => handleDisconnect('odoo')}
+          isDisconnecting={disconnecting === 'odoo'}
         />
       </div>
 
@@ -170,9 +218,12 @@ function IntegrationCard({
   isConnected,
   connectedAt,
   details,
+  extraDetails,
   stats,
   color,
   connectUrl,
+  onDisconnect,
+  isDisconnecting,
 }: {
   name: string;
   description: string;
@@ -180,9 +231,12 @@ function IntegrationCard({
   isConnected: boolean;
   connectedAt?: string;
   details: string;
+  extraDetails?: { label: string; value: string }[];
   stats?: { success: number; failed: number; pending: number };
   color: 'blue' | 'purple';
   connectUrl: string;
+  onDisconnect: () => void;
+  isDisconnecting: boolean;
 }) {
   const colors = {
     blue: {
@@ -249,6 +303,15 @@ function IntegrationCard({
           <span className="text-sm text-slate-600">{details}</span>
         </div>
 
+        {extraDetails && extraDetails.map((detail, idx) => (
+          <div key={idx} className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700">{detail.label}</span>
+            <span className="text-sm text-slate-600 truncate max-w-[200px]" title={detail.value}>
+              {detail.value}
+            </span>
+          </div>
+        ))}
+
         {stats && isConnected && (
           <div className={`${colorScheme.light} ${colorScheme.border} border rounded-xl p-4 mt-4`}>
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -272,8 +335,19 @@ function IntegrationCard({
       {/* Action Button */}
       <div className="mt-6">
         {isConnected ? (
-          <button className="w-full px-4 py-3 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors">
-            Disconnect
+          <button 
+            onClick={onDisconnect}
+            disabled={isDisconnecting}
+            className="w-full px-4 py-3 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isDisconnecting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                Disconnecting...
+              </>
+            ) : (
+              'Disconnect'
+            )}
           </button>
         ) : (
           <a

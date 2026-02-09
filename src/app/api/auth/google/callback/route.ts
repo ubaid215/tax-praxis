@@ -1,3 +1,4 @@
+/// api/google/callback
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { GoogleTokenResponse } from "@/types/google-calendar";

@@ -1,87 +1,192 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
-import { Calendar, Clock, User, Mail, Phone, MessageSquare, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, MessageSquare, CheckCircle, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import BookingSkeleton from "@/components/common/BookingSkeleton";
 import "react-day-picker/dist/style.css";
 
+interface TimeSlot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+  availabilityId: string;
+}
+
+interface Availability {
+  id: string;
+  date: string;
+  startAt: string;
+  endAt: string;
+  slots: TimeSlot[];
+}
+
 const BookingPage = () => {
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  
   const [formData, setFormData] = useState({
-    name: "",
+    fullName: "",
     email: "",
     phone: "",
-    service: "general-consultation",
-    date: "",
-    time: "",
-    message: "",
+    notes: "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
 
-  const timeSlots = [
-    "09:00 AM", "10:00 AM", "11:00 AM", 
-    "12:00 PM", "01:00 PM", "02:00 PM", 
-    "03:00 PM", "04:00 PM", "05:00 PM"
-  ];
+  // Fetch available dates on component mount
+  useEffect(() => {
+    fetchAvailability();
+  }, []);
 
-  const services = [
-    { id: "general-consultation", name: "General Tax Consultation" },
-    { id: "business-tax", name: "Business Tax Planning" },
-    { id: "personal-tax", name: "Personal Tax Strategy" },
-    { id: "compliance-review", name: "Compliance Review" },
-    { id: "financial-planning", name: "Financial Planning" },
-    { id: "other", name: "Other Service" },
-  ];
+  const fetchAvailability = async () => {
+    try {
+      setInitialLoading(true);
+      const response = await fetch('/api/availability');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability');
+      }
+
+      const data: Availability[] = await response.json();
+      
+      // Extract unique dates that have available slots
+      const dates = data
+        .filter(avail => avail.slots.some(slot => !slot.isBooked))
+        .map(avail => new Date(avail.date));
+      
+      setAvailableDates(dates);
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      toast.error('Failed to load available dates');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  // Fetch slots for selected date
+  const fetchSlotsForDate = async (date: Date) => {
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const response = await fetch(`/api/availability?date=${dateStr}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch slots');
+      }
+
+      const data: Availability[] = await response.json();
+      
+      // Get all available slots for this date
+      const slots = data.flatMap(avail => 
+        avail.slots.filter(slot => !slot.isBooked)
+      );
+      
+      setAvailableSlots(slots);
+      
+      if (slots.length === 0) {
+        toast('No available slots for this date', {
+          icon: '📅',
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      toast.error('Failed to load time slots');
+      setAvailableSlots([]);
+    }
+  };
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
+    setSelectedSlot(null); // Reset selected slot
+    
     if (date) {
-      const formattedDate = format(date, "yyyy-MM-dd");
-      setFormData(prev => ({ ...prev, date: formattedDate }));
+      fetchSlotsForDate(date);
       setShowCalendar(false);
       
-      // Show mini toast for date selection
       toast.success(`Selected ${format(date, "MMMM d, yyyy")}`, {
         duration: 2000,
         position: "bottom-center",
         icon: "📅",
       });
+    } else {
+      setAvailableSlots([]);
     }
+  };
+
+  const handleTimeSelect = (slot: TimeSlot) => {
+    setSelectedSlot(slot);
+    
+    const timeStr = format(new Date(slot.startTime), 'h:mm a');
+    toast(`Selected ${timeStr}`, {
+      duration: 1500,
+      position: "bottom-center",
+      icon: "⏰",
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     
-    // Show loading toast
-    const loadingToast = toast.loading("Submitting your booking request...", {
-      duration: 1500,
-    });
+    if (!selectedSlot) {
+      toast.error('Please select a time slot');
+      return;
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    setLoading(true);
+    const loadingToast = toast.loading("Creating your booking...");
+
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          slotId: selectedSlot.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create booking');
+      }
+
       toast.dismiss(loadingToast);
       
-      // Success toast with animation
+      // Success notification with sync status
+      const { booking, syncStatus } = data;
+      
       toast.success(
         <div className="flex flex-col items-center gap-2">
           <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle className="w-6 h-6 text-green-600 animate-bounce" />
+            <CheckCircle className="w-6 h-6 text-green-600" />
           </div>
           <div className="text-center">
             <p className="font-semibold text-gray-900">Booking Confirmed!</p>
-            <p className="text-sm text-gray-600">We'll contact you shortly.</p>
+            <p className="text-sm text-gray-600">
+              Status: {booking.status}
+            </p>
+            {syncStatus.google === 'SUCCESS' && (
+              <p className="text-xs text-green-600">✓ Google Calendar synced</p>
+            )}
+            {syncStatus.odoo === 'SUCCESS' && (
+              <p className="text-xs text-green-600">✓ Odoo synced</p>
+            )}
           </div>
         </div>,
         {
-          duration: 4000,
+          duration: 5000,
           position: "top-center",
           style: {
             background: "white",
@@ -94,39 +199,45 @@ const BookingPage = () => {
 
       // Reset form
       setFormData({
-        name: "",
+        fullName: "",
         email: "",
         phone: "",
-        service: "general-consultation",
-        date: "",
-        time: "",
-        message: "",
+        notes: "",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       setSelectedDate(undefined);
-      setSelectedTime("");
-    }, 1500);
+      setSelectedSlot(null);
+      setAvailableSlots([]);
+      
+      // Refresh availability
+      fetchAvailability();
+      
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create booking'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleTimeSelect = (time: string) => {
-    setFormData(prev => ({ ...prev, time }));
-    setSelectedTime(time);
-    
-    // Show mini toast for time selection
-    toast(`Selected ${time}`, {
-      duration: 1500,
-      position: "bottom-center",
-      icon: "⏰",
-    });
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Disable dates that don't have availability
   const disabledDays = [
-    { from: new Date(0), to: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Past dates
-    { dayOfWeek: [0, 6] }, // Disable weekends (0 = Sunday, 6 = Saturday)
+    { from: new Date(0), to: new Date(new Date().setHours(0, 0, 0, 0) - 1) }, // Past dates
+    (date: Date) => {
+      // Disable dates that aren't in availableDates
+      return !availableDates.some(
+        availDate => format(availDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+      );
+    }
   ];
 
   const footer = selectedDate ? (
@@ -139,7 +250,7 @@ const BookingPage = () => {
     </p>
   );
 
-  if (loading) {
+  if (initialLoading) {
     return <BookingSkeleton />;
   }
 
@@ -174,6 +285,18 @@ const BookingPage = () => {
             </p>
           </div>
 
+          {availableDates.length === 0 && (
+            <div className="max-w-2xl mx-auto mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-semibold text-yellow-900">No availability found</h3>
+                <p className="text-sm text-yellow-700">
+                  There are currently no available time slots. Please check back later or contact us directly.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Left Column - Booking Form */}
             <div className="bg-white rounded-2xl shadow-soft p-6 sm:p-8">
@@ -192,23 +315,23 @@ const BookingPage = () => {
                     Personal Information
                   </h3>
                   
+                  <div className="space-y-2">
+                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="fullName"
+                      name="fullName"
+                      required
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all duration-200"
+                      placeholder="John Smith"
+                    />
+                  </div>
+                  
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        required
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all duration-200"
-                        placeholder="John Smith"
-                      />
-                    </div>
-                    
                     <div className="space-y-2">
                       <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                         Email Address *
@@ -224,61 +347,23 @@ const BookingPage = () => {
                         placeholder="john@example.com"
                       />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      required
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all duration-200"
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-                </div>
-
-                {/* Service Selection */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Select Service</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {services.map((service) => (
-                      <label
-                        key={service.id}
-                        className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                          formData.service === service.id
-                            ? "border-blue-500 bg-blue-50 shadow-soft"
-                            : "border-gray-200 bg-gray-50 hover:border-blue-300 hover:shadow-sm"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="service"
-                          value={service.id}
-                          checked={formData.service === service.id}
-                          onChange={handleInputChange}
-                          className="sr-only"
-                        />
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-medium text-gray-900">{service.name}</span>
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            formData.service === service.id
-                              ? "border-blue-500 bg-blue-500"
-                              : "border-gray-300"
-                          }`}>
-                            {formData.service === service.id && (
-                              <div className="w-2 h-2 rounded-full bg-white"></div>
-                            )}
-                          </div>
-                        </div>
+                    
+                    <div className="space-y-2">
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Phone Number *
                       </label>
-                    ))}
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        required
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all duration-200"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -296,7 +381,8 @@ const BookingPage = () => {
                         <button
                           type="button"
                           onClick={() => setShowCalendar(!showCalendar)}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-blue-500 text-left focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-200 flex items-center justify-between"
+                          disabled={availableDates.length === 0}
+                          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-blue-500 text-left focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-200 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className={selectedDate ? "text-gray-900" : "text-gray-500"}>
                             {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Choose a date"}
@@ -330,15 +416,10 @@ const BookingPage = () => {
                                 row: "flex w-full mt-1",
                                 cell: "relative p-0 text-center",
                                 day: "h-8 w-8 p-0 font-normal hover:bg-gray-100 rounded-md transition-colors",
-                                day_range_end: "day-range-end",
                                 day_selected: "bg-blue-600 text-white hover:bg-blue-700",
                                 day_today: "text-blue-600 font-semibold",
                                 day_disabled: "text-gray-300 cursor-not-allowed hover:bg-transparent",
                                 day_outside: "text-gray-300",
-                              }}
-                              components={{
-                                IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-                                IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
                               }}
                             />
                             {footer}
@@ -352,10 +433,6 @@ const BookingPage = () => {
                           </div>
                         )}
                       </div>
-                      
-                      <div className="text-sm text-gray-500">
-                        Available Monday-Friday, 9AM-5PM
-                      </div>
                     </div>
 
                     {/* Time Selection */}
@@ -364,22 +441,39 @@ const BookingPage = () => {
                         <Clock className="w-5 h-5" />
                         Select Time
                       </h3>
-                      <div className="grid grid-cols-3 gap-3">
-                        {timeSlots.map((time) => (
-                          <button
-                            key={time}
-                            type="button"
-                            onClick={() => handleTimeSelect(time)}
-                            className={`py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                              formData.time === time
-                                ? "bg-blue-600 text-white shadow-md transform scale-105"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:scale-105"
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
+                      
+                      {!selectedDate ? (
+                        <div className="text-center py-8 text-gray-500">
+                          Please select a date first
+                        </div>
+                      ) : availableSlots.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          No available slots for this date
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+                          {availableSlots.map((slot) => {
+                            const startTime = new Date(slot.startTime);
+                            const timeStr = format(startTime, 'h:mm a');
+                            const isSelected = selectedSlot?.id === slot.id;
+                            
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => handleTimeSelect(slot)}
+                                className={`py-3 px-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                                  isSelected
+                                    ? "bg-blue-600 text-white shadow-md transform scale-105"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:scale-105"
+                                }`}
+                              >
+                                {timeStr}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -391,9 +485,9 @@ const BookingPage = () => {
                     Additional Details (Optional)
                   </h3>
                   <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
                     onChange={handleInputChange}
                     rows={4}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all duration-200 resize-none"
@@ -404,7 +498,7 @@ const BookingPage = () => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={loading || !formData.date || !formData.time}
+                  disabled={loading || !selectedSlot}
                   className="w-full py-4 px-6 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-3 group"
                 >
                   {loading ? (
@@ -430,7 +524,7 @@ const BookingPage = () => {
                 
                 <div className="space-y-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
                       <Mail className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
@@ -441,7 +535,7 @@ const BookingPage = () => {
                   </div>
                   
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
                       <Phone className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
@@ -452,7 +546,7 @@ const BookingPage = () => {
                   </div>
                   
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
                       <Clock className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
@@ -470,7 +564,7 @@ const BookingPage = () => {
                 
                 <div className="space-y-5">
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-1">
                       <CheckCircle className="w-4 h-4 text-white" />
                     </div>
                     <div>
@@ -480,7 +574,7 @@ const BookingPage = () => {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-1">
                       <CheckCircle className="w-4 h-4 text-white" />
                     </div>
                     <div>
@@ -490,7 +584,7 @@ const BookingPage = () => {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-1">
                       <CheckCircle className="w-4 h-4 text-white" />
                     </div>
                     <div>
@@ -500,12 +594,12 @@ const BookingPage = () => {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-1">
                       <CheckCircle className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-900">No Pressure Follow-up</h4>
-                      <p className="text-gray-600 text-sm">We&apos;ll provide next steps, no sales pressure</p>
+                      <h4 className="font-semibold text-gray-900">Calendar Integration</h4>
+                      <p className="text-gray-600 text-sm">Automatic sync with Google Calendar</p>
                     </div>
                   </div>
                 </div>
@@ -525,7 +619,7 @@ const BookingPage = () => {
                     <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                       <span className="text-blue-600 font-bold">2</span>
                     </div>
-                    <p className="text-sm text-gray-700">Weekends are unavailable for consultations</p>
+                    <p className="text-sm text-gray-700">Only dates with available slots are selectable</p>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">

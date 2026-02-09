@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createCalendarEvent } from "@/lib/googleEvent";
+import { createOdooAppointment, odooClient } from "@/lib/odoo";
 
 export async function GET() {
   try {
@@ -9,6 +10,9 @@ export async function GET() {
         slot: true,
         guests: true,
         user: true,
+        syncLogs: {
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -27,13 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // 1. Create booking in database with PENDING status
-    // Why PENDING? Because we need to:
-    // - Reserve the slot first
-    // - Then sync with Google Calendar
-    // - Only mark as CONFIRMED after successful sync
-    // This prevents race conditions and ensures data consistency
-    // It shoud be display confimed even when one or both sync with their individual status 
+    // 1. Create booking with PENDING status
     const booking = await prisma.booking.create({
       data: {
         fullName: body.fullName,
@@ -44,13 +42,13 @@ export async function POST(request: NextRequest) {
         timezone: body.timezone || "UTC",
         status: "PENDING", // Start as PENDING
       },
-      include: { 
+      include: {
         slot: true,
-        guests: true 
+        guests: true,
       },
     });
 
-    // 2. Mark slot as booked to prevent double-booking
+    // 2. Mark slot as booked
     await prisma.timeSlot.update({
       where: { id: body.slotId },
       data: { isBooked: true },
@@ -71,6 +69,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Track sync results
+    let googleSuccess = false;
+    let odooSuccess = false;
+    const syncResults: any = {
+      google: null,
+      odoo: null,
+    };
+
     // 4. Sync with Google Calendar
     try {
       const event = await createCalendarEvent({
@@ -79,103 +85,166 @@ export async function POST(request: NextRequest) {
         startDateTime: booking.slot.startTime.toISOString(),
         endDateTime: booking.slot.endTime.toISOString(),
         attendees: [
-          { 
+          {
             email: booking.email,
-            displayName: booking.fullName 
-          }
+            displayName: booking.fullName,
+          },
         ],
         timeZone: booking.timezone,
       });
 
-      // 5. Update booking to CONFIRMED after successful sync
+      googleSuccess = true;
+      syncResults.google = {
+        eventId: event.id,
+        link: event.htmlLink,
+        meetLink: event.hangoutLink,
+      };
+
+      // Update booking with Google event ID
       await prisma.booking.update({
         where: { id: booking.id },
         data: {
           googleEventId: event.id,
           googleSyncedAt: new Date(),
-          status: "CONFIRMED", // Now we can confirm
         },
       });
 
-      // 6. Log successful sync
+      // Log successful Google sync
       await prisma.syncLog.create({
         data: {
           bookingId: booking.id,
           system: "GOOGLE_CALENDAR",
           action: "CREATE",
           status: "SUCCESS",
-          metadata: { 
-            eventId: event.id, 
-            hangoutLink: event.hangoutLink 
-          },
-        },
-      });
-
-      // 7. Create audit log for successful sync
-      await prisma.auditLog.create({
-        data: {
-          action: "SYNC",
-          entity: "Booking",
-          entityId: booking.id,
-          userId: body.userId || null,
-          meta: {
-            system: "GOOGLE_CALENDAR",
-            status: "SUCCESS",
+          metadata: {
             eventId: event.id,
+            hangoutLink: event.hangoutLink,
           },
         },
       });
-
-      return NextResponse.json({ 
-        booking: {
-          ...booking,
-          status: "CONFIRMED",
-          googleEventId: event.id,
-        }, 
-        event: {
-          id: event.id,
-          link: event.htmlLink,
-          meetLink: event.hangoutLink
-        }
-      }, { status: 201 });
-
     } catch (googleError) {
       console.error("Google Calendar sync failed:", googleError);
 
-      // Log failed sync
+      // Log failed Google sync
       await prisma.syncLog.create({
         data: {
           bookingId: booking.id,
           system: "GOOGLE_CALENDAR",
           action: "CREATE",
           status: "FAILED",
-          error: googleError instanceof Error ? googleError.message : String(googleError),
+          error:
+            googleError instanceof Error
+              ? googleError.message
+              : String(googleError),
         },
       });
-
-      // Create audit log for failed sync
-      await prisma.auditLog.create({
-        data: {
-          action: "SYNC",
-          entity: "Booking",
-          entityId: booking.id,
-          userId: body.userId || null,
-          meta: {
-            system: "GOOGLE_CALENDAR",
-            status: "FAILED",
-            error: googleError instanceof Error ? googleError.message : String(googleError),
-          },
-        },
-      });
-
-      // Booking remains PENDING if Google sync fails
-      // This allows admin to retry sync manually later
-      return NextResponse.json({ 
-        booking,
-        warning: "Booking created but Google Calendar sync failed. Status remains PENDING."
-      }, { status: 201 });
     }
 
+    // 5. Sync with Odoo (if configured)
+    if (odooClient.isConfigured()) {
+      try {
+        const odooAppointmentId = await createOdooAppointment({
+          fullName: booking.fullName,
+          email: booking.email,
+          phone: booking.phone,
+          startTime: booking.slot.startTime,
+          endTime: booking.slot.endTime,
+          notes: booking.notes || undefined,
+        });
+
+        odooSuccess = true;
+        syncResults.odoo = {
+          appointmentId: odooAppointmentId,
+        };
+
+        // Update booking with Odoo appointment ID
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            odooAppointmentId,
+            odooSyncedAt: new Date(),
+          },
+        });
+
+        // Log successful Odoo sync
+        await prisma.syncLog.create({
+          data: {
+            bookingId: booking.id,
+            system: "ODOO",
+            action: "CREATE",
+            status: "SUCCESS",
+            metadata: {
+              appointmentId: odooAppointmentId,
+            },
+          },
+        });
+      } catch (odooError) {
+        console.error("Odoo sync failed:", odooError);
+
+        // Log failed Odoo sync
+        await prisma.syncLog.create({
+          data: {
+            bookingId: booking.id,
+            system: "ODOO",
+            action: "CREATE",
+            status: "FAILED",
+            error:
+              odooError instanceof Error ? odooError.message : String(odooError),
+          },
+        });
+      }
+    }
+
+    // 6. Update booking status based on sync results
+    // CONFIRMED if at least ONE system synced successfully
+    const finalStatus = googleSuccess || odooSuccess ? "CONFIRMED" : "PENDING";
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: finalStatus },
+    });
+
+    // 7. Create audit log for final status
+    await prisma.auditLog.create({
+      data: {
+        action: "SYNC_COMPLETE",
+        entity: "Booking",
+        entityId: booking.id,
+        userId: body.userId || null,
+        meta: {
+          finalStatus,
+          googleSuccess,
+          odooSuccess,
+          syncResults,
+        },
+      },
+    });
+
+    // 8. Fetch updated booking with all relations
+    const finalBooking = await prisma.booking.findUnique({
+      where: { id: booking.id },
+      include: {
+        slot: true,
+        guests: true,
+        syncLogs: true,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        booking: finalBooking,
+        syncStatus: {
+          google: googleSuccess ? "SUCCESS" : "FAILED",
+          odoo: odooClient.isConfigured()
+            ? odooSuccess
+              ? "SUCCESS"
+              : "FAILED"
+            : "NOT_CONFIGURED",
+        },
+        syncResults,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating booking:", error);
     return NextResponse.json(
