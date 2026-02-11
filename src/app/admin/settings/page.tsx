@@ -10,7 +10,9 @@ interface GoogleAuthStatus {
 
 interface OdooAuthStatus {
   isConnected: boolean;
-  userId?: number;
+  url?: string;
+  database?: string;
+  username?: string;
   connectedAt?: string;
 }
 
@@ -18,7 +20,7 @@ export default function SettingsPage() {
   const [googleAuth, setGoogleAuth] = useState<GoogleAuthStatus | null>(null);
   const [odooAuth, setOdooAuth] = useState<OdooAuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
   
   // Email/Password Change States
   const [showEmailChange, setShowEmailChange] = useState(false);
@@ -44,7 +46,7 @@ export default function SettingsPage() {
   };
 
   const handleConnectGoogle = () => {
-    setConnecting(true);
+    setConnecting('google');
     const root = "https://accounts.google.com/o/oauth2/v2/auth";
     const params = new URLSearchParams({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
@@ -56,6 +58,32 @@ export default function SettingsPage() {
     });
 
     window.location.href = `${root}?${params.toString()}`;
+  };
+
+  const handleConnectOdoo = async () => {
+    setConnecting('odoo');
+    
+    try {
+      const res = await fetch('/api/odoo/connect', {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Failed to connect to Odoo');
+        return;
+      }
+
+      // Refresh integration status
+      await checkIntegrationStatus();
+      alert('Odoo connected successfully!');
+    } catch (error) {
+      console.error('Failed to connect Odoo:', error);
+      alert('Failed to connect to Odoo. Please check your environment variables.');
+    } finally {
+      setConnecting(null);
+    }
   };
 
   const handleDisconnectGoogle = async () => {
@@ -73,6 +101,26 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Failed to disconnect:", error);
+    }
+  };
+
+  const handleDisconnectOdoo = async () => {
+    if (!confirm("Are you sure you want to disconnect Odoo?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/odoo/disconnect", {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await checkIntegrationStatus();
+        alert('Odoo disconnected successfully');
+      }
+    } catch (error) {
+      console.error("Failed to disconnect Odoo:", error);
+      alert('Failed to disconnect Odoo');
     }
   };
 
@@ -385,13 +433,13 @@ export default function SettingsPage() {
 
               <button
                 onClick={handleConnectGoogle}
-                disabled={connecting}
+                disabled={connecting === 'google'}
                 style={{
                   ...styles.connectButton,
-                  ...(connecting ? styles.connectButtonDisabled : {}),
+                  ...(connecting === 'google' ? styles.connectButtonDisabled : {}),
                 }}
               >
-                {connecting ? (
+                {connecting === 'google' ? (
                   <>
                     <div style={styles.spinner}></div>
                     Connecting...
@@ -427,27 +475,56 @@ export default function SettingsPage() {
 
         <div style={styles.sectionContent}>
           {odooAuth?.isConnected ? (
-            <div style={styles.statusBadge}>
-              <CheckIcon />
-              <div style={{ flex: 1 }}>
-                <p style={styles.statusTitle}>Connected Successfully</p>
-                <p style={styles.statusDetail}>User ID: {odooAuth.userId}</p>
-                {odooAuth.connectedAt && (
-                  <p style={styles.statusTime}>
-                    Connected: {new Date(odooAuth.connectedAt).toLocaleString()}
-                  </p>
-                )}
+            <div style={styles.connectedState}>
+              <div style={styles.statusBadge}>
+                <CheckIcon />
+                <div style={{ flex: 1 }}>
+                  <p style={styles.statusTitle}>Connected Successfully</p>
+                  <p style={styles.statusDetail}>Database: {odooAuth.database}</p>
+                  <p style={styles.statusDetail}>URL: {odooAuth.url}</p>
+                  <p style={styles.statusDetail}>Username: {odooAuth.username}</p>
+                  {odooAuth.connectedAt && (
+                    <p style={styles.statusTime}>
+                      Connected: {new Date(odooAuth.connectedAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
               </div>
+
+              <button onClick={handleDisconnectOdoo} style={styles.disconnectButton}>
+                Disconnect Odoo
+              </button>
             </div>
           ) : (
-            <div style={styles.infoBox}>
-              <InfoIcon />
-              <div>
-                <p style={styles.infoTitle}>Odoo Not Connected</p>
-                <p style={styles.infoText}>
-                  Configure Odoo credentials in your user settings to enable CRM synchronization.
-                </p>
+            <div style={styles.disconnectedState}>
+              <div style={styles.infoBox}>
+                <InfoIcon />
+                <div>
+                  <p style={styles.infoTitle}>Connect Odoo CRM</p>
+                  <p style={styles.infoText}>
+                    Sync your booking appointments with Odoo calendar events and customer records.
+                    Make sure ODOO_URL, ODOO_DB, ODOO_USERNAME, and ODOO_API_KEY are set in your environment variables.
+                  </p>
+                </div>
               </div>
+
+              <button
+                onClick={handleConnectOdoo}
+                disabled={connecting === 'odoo'}
+                style={{
+                  ...styles.connectButton,
+                  ...(connecting === 'odoo' ? styles.connectButtonDisabled : {}),
+                }}
+              >
+                {connecting === 'odoo' ? (
+                  <>
+                    <div style={styles.spinner}></div>
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect Odoo'
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -456,7 +533,7 @@ export default function SettingsPage() {
   );
 }
 
-// Icons
+// Icons (keeping the same as before)
 function GoogleIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -542,7 +619,7 @@ function LockIcon() {
   );
 }
 
-// Styles using CSS variables
+// Styles (keeping the same)
 const styles: Record<string, React.CSSProperties> = {
   container: {
     padding: '2rem',

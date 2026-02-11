@@ -1,81 +1,75 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+// app/api/integrations/status/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    // Check Google Calendar connection
+    // Check Google Calendar integration
     const googleAuth = await prisma.googleAuth.findFirst({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
-    // Check Odoo connection (check if any user has odoo credentials)
-    const odooUser = await prisma.user.findFirst({
-      where: {
-        AND: [
-          { odooUserId: { not: null } },
-          { odooApiKey: { not: null } },
-        ],
-      },
-      select: {
-        odooUserId: true,
-        createdAt: true,
-      },
+    // ✅ FIX: Check Odoo integration from OdooAuth table (not User table)
+    const odooAuth = await prisma.odooAuth.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
     });
 
-    // Get sync stats for Google Calendar
-    const googleSuccess = await prisma.syncLog.count({
-      where: {
-        system: 'GOOGLE_CALENDAR',
-        status: 'SUCCESS',
-      },
-    });
+    // Get sync statistics
+    const [
+      googleSuccess,
+      googleFailed,
+      googlePending,
+      odooSuccess,
+      odooFailed,
+      odooPending,
+    ] = await Promise.all([
+      prisma.syncLog.count({
+        where: { system: "GOOGLE_CALENDAR", status: "SUCCESS" },
+      }),
+      prisma.syncLog.count({
+        where: { system: "GOOGLE_CALENDAR", status: "FAILED" },
+      }),
+      prisma.syncLog.count({
+        where: { system: "GOOGLE_CALENDAR", status: "PENDING" },
+      }),
+      prisma.syncLog.count({
+        where: { system: "ODOO", status: "SUCCESS" },
+      }),
+      prisma.syncLog.count({
+        where: { system: "ODOO", status: "FAILED" },
+      }),
+      prisma.syncLog.count({
+        where: { system: "ODOO", status: "PENDING" },
+      }),
+    ]);
 
-    const googleFailed = await prisma.syncLog.count({
-      where: {
-        system: 'GOOGLE_CALENDAR',
-        status: 'FAILED',
+    console.log('📊 Integration Status Response:', {
+      google: {
+        isConnected: !!googleAuth,
+        calendarId: googleAuth?.calendarId,
       },
-    });
-
-    const googlePending = await prisma.syncLog.count({
-      where: {
-        system: 'GOOGLE_CALENDAR',
-        status: 'PENDING',
-      },
-    });
-
-    // Get sync stats for Odoo
-    const odooSuccess = await prisma.syncLog.count({
-      where: {
-        system: 'ODOO',
-        status: 'SUCCESS',
-      },
-    });
-
-    const odooFailed = await prisma.syncLog.count({
-      where: {
-        system: 'ODOO',
-        status: 'FAILED',
-      },
-    });
-
-    const odooPending = await prisma.syncLog.count({
-      where: {
-        system: 'ODOO',
-        status: 'PENDING',
-      },
+      odoo: {
+        isConnected: !!odooAuth,
+        url: odooAuth?.url,
+        database: odooAuth?.database,
+        username: odooAuth?.username,
+      }
     });
 
     return NextResponse.json({
       google: {
         isConnected: !!googleAuth,
-        calendarId: googleAuth?.calendarId,
-        connectedAt: googleAuth?.createdAt.toISOString(),
+        calendarId: googleAuth?.calendarId || undefined,
+        connectedAt: googleAuth?.createdAt?.toISOString() || undefined,
       },
       odoo: {
-        isConnected: !!odooUser,
-        userId: odooUser?.odooUserId,
-        connectedAt: odooUser?.createdAt.toISOString(),
+        isConnected: !!odooAuth,
+        url: odooAuth?.url || undefined,
+        database: odooAuth?.database || undefined,
+        username: odooAuth?.username || undefined,
+        connectedAt: odooAuth?.createdAt?.toISOString() || undefined,
+        lastSyncedAt: odooAuth?.lastSyncedAt?.toISOString() || undefined,
       },
       syncStats: {
         google: {
@@ -91,9 +85,9 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Error fetching integration status:', error);
+    console.error("Failed to fetch integration status:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch status' },
+      { error: "Failed to fetch integration status" },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface IntegrationStatus {
   google: {
@@ -31,23 +32,99 @@ interface IntegrationStatus {
 }
 
 export default function IntegrationsPage() {
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   useEffect(() => {
     fetchStatus();
-  }, []);
+    
+    // Check for success/error/info query parameters
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    const info = searchParams.get('info');
+    
+    // Google Calendar notifications
+    if (success === 'google_connected') {
+      setNotification({ type: 'success', message: 'Google Calendar connected successfully!' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'no_code') {
+      setNotification({ type: 'error', message: 'Google OAuth failed: No authorization code received.' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'no_refresh_token') {
+      setNotification({ type: 'error', message: 'Google OAuth failed: No refresh token received. Try again.' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'auth_failed') {
+      setNotification({ type: 'error', message: 'Authentication failed. Please try again.' });
+      setTimeout(() => setNotification(null), 5000);
+    }
+    // Odoo notifications
+    else if (success === 'odoo_connected') {
+      setNotification({ type: 'success', message: 'Odoo connected successfully!' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'odoo_auth_failed') {
+      setNotification({ type: 'error', message: 'Odoo authentication failed. Please check your credentials.' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'odoo_not_configured') {
+      setNotification({ type: 'error', message: 'Odoo is not configured. Please set environment variables.' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (error === 'odoo_connection_failed') {
+      setNotification({ type: 'error', message: 'Failed to connect to Odoo. Please try again.' });
+      setTimeout(() => setNotification(null), 5000);
+    } else if (info === 'use_connect_button') {
+      setNotification({ type: 'info', message: 'Please use the Connect button to establish Odoo connection.' });
+      setTimeout(() => setNotification(null), 5000);
+    }
+  }, [searchParams]);
 
   const fetchStatus = async () => {
     try {
       const res = await fetch('/api/integrations/status');
       const data = await res.json();
+      
+      console.log('🔍 Integration Status:', data);
       setStatus(data);
     } catch (error) {
       console.error('Failed to fetch integration status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnectOdoo = async () => {
+    setConnecting('odoo');
+    
+    try {
+      const res = await fetch('/api/odoo/connect', {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to connect to Odoo');
+      }
+
+      // Refresh status
+      await fetchStatus();
+      
+      setNotification({ 
+        type: 'success', 
+        message: 'Odoo connected successfully!' 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (error) {
+      console.error('Failed to connect Odoo:', error);
+      setNotification({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to connect to Odoo. Please try again.' 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setConnecting(null);
     }
   };
 
@@ -74,10 +151,18 @@ export default function IntegrationsPage() {
       // Refresh status
       await fetchStatus();
       
-      alert(`${service === 'google' ? 'Google Calendar' : 'Odoo'} disconnected successfully`);
+      setNotification({ 
+        type: 'success', 
+        message: `${service === 'google' ? 'Google Calendar' : 'Odoo'} disconnected successfully` 
+      });
+      setTimeout(() => setNotification(null), 5000);
     } catch (error) {
       console.error('Failed to disconnect:', error);
-      alert('Failed to disconnect. Please try again.');
+      setNotification({ 
+        type: 'error', 
+        message: 'Failed to disconnect. Please try again.' 
+      });
+      setTimeout(() => setNotification(null), 5000);
     } finally {
       setDisconnecting(null);
     }
@@ -93,6 +178,44 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Notification Banner */}
+      {notification && (
+        <div
+          className={`p-4 rounded-xl border-2 ${
+            notification.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : notification.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          } flex items-center justify-between animate-in slide-in-from-top-5 duration-300`}
+        >
+          <div className="flex items-center gap-3">
+            {notification.type === 'success' ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : notification.type === 'error' ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <span className="font-medium">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="text-current opacity-70 hover:opacity-100"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Integrations</h1>
@@ -115,9 +238,12 @@ export default function IntegrationsPage() {
           }
           stats={status?.syncStats.google}
           color="blue"
-          connectUrl="/api/google/auth"
+          connectUrl="/api/google/auth?returnTo=/admin/integrations"
+          onConnect={undefined}
           onDisconnect={() => handleDisconnect('google')}
+          isConnecting={connecting === 'google'}
           isDisconnecting={disconnecting === 'google'}
+          useDirectConnection={false}
         />
 
         {/* Odoo */}
@@ -143,8 +269,11 @@ export default function IntegrationsPage() {
           stats={status?.syncStats.odoo}
           color="purple"
           connectUrl="/api/odoo/connect"
+          onConnect={handleConnectOdoo}
           onDisconnect={() => handleDisconnect('odoo')}
+          isConnecting={connecting === 'odoo'}
           isDisconnecting={disconnecting === 'odoo'}
+          useDirectConnection={true}
         />
       </div>
 
@@ -222,8 +351,11 @@ function IntegrationCard({
   stats,
   color,
   connectUrl,
+  onConnect,
   onDisconnect,
+  isConnecting,
   isDisconnecting,
+  useDirectConnection = false,
 }: {
   name: string;
   description: string;
@@ -235,8 +367,11 @@ function IntegrationCard({
   stats?: { success: number; failed: number; pending: number };
   color: 'blue' | 'purple';
   connectUrl: string;
+  onConnect?: () => void;
   onDisconnect: () => void;
+  isConnecting: boolean;
   isDisconnecting: boolean;
+  useDirectConnection?: boolean;
 }) {
   const colors = {
     blue: {
@@ -350,12 +485,29 @@ function IntegrationCard({
             )}
           </button>
         ) : (
-          <a
-            href={connectUrl}
-            className={`block w-full px-4 py-3 bg-gradient-to-r ${colorScheme.bg} text-white font-medium rounded-xl hover:opacity-90 transition-opacity text-center`}
-          >
-            Connect {name}
-          </a>
+          useDirectConnection && onConnect ? (
+            <button
+              onClick={onConnect}
+              disabled={isConnecting}
+              className={`w-full px-4 py-3 bg-gradient-to-r ${colorScheme.bg} text-white font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+            >
+              {isConnecting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Connecting...
+                </>
+              ) : (
+                `Connect ${name}`
+              )}
+            </button>
+          ) : (
+            <a
+              href={connectUrl}
+              className={`block w-full px-4 py-3 bg-gradient-to-r ${colorScheme.bg} text-white font-medium rounded-xl hover:opacity-90 transition-opacity text-center`}
+            >
+              Connect {name}
+            </a>
+          )
         )}
       </div>
     </div>

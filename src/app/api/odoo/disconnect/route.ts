@@ -4,28 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/odoo/disconnect
- * Disconnect Odoo integration by deactivating the stored auth
+ * Disconnect Odoo integration by marking it as inactive
  */
 export async function POST() {
   try {
-    const odooAuth = await prisma.odooAuth.findFirst({
+    // Mark all Odoo auth records as inactive
+    await prisma.odooAuth.updateMany({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!odooAuth) {
-      return NextResponse.json(
-        { error: "No active Odoo connection found" },
-        { status: 404 }
-      );
-    }
-
-    // Deactivate the connection instead of deleting
-    await prisma.odooAuth.update({
-      where: { id: odooAuth.id },
-      data: {
-        isActive: false,
-      },
+      data: { isActive: false },
     });
 
     return NextResponse.json({
@@ -33,7 +19,7 @@ export async function POST() {
       message: "Odoo disconnected successfully",
     });
   } catch (error) {
-    console.error("Error disconnecting Odoo:", error);
+    console.error("Failed to disconnect Odoo:", error);
     return NextResponse.json(
       { error: "Failed to disconnect Odoo" },
       { status: 500 }

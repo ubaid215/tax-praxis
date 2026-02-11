@@ -1,4 +1,4 @@
-/// api/google/callback
+// app/api/auth/google/callback/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { GoogleTokenResponse } from "@/types/google-calendar";
@@ -6,10 +6,12 @@ import type { GoogleTokenResponse } from "@/types/google-calendar";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // This contains the returnTo path
+  const returnTo = state || "/admin/settings"; // Default to settings if no state
 
   if (!code) {
     return NextResponse.redirect(
-      new URL("/dashboard/settings?error=no_code", req.url)
+      new URL(`${returnTo}?error=no_code`, url.origin)
     );
   }
 
@@ -31,7 +33,7 @@ export async function GET(req: Request) {
 
     if (!tokens.refresh_token) {
       return NextResponse.redirect(
-        new URL("/dashboard/settings?error=no_refresh_token", req.url)
+        new URL(`${returnTo}?error=no_refresh_token`, url.origin)
       );
     }
 
@@ -46,14 +48,16 @@ export async function GET(req: Request) {
       },
     });
 
-    // Redirect back to settings with success
+    console.log("✅ Google Calendar connected successfully");
+
+    // Redirect back to the page that initiated the OAuth flow
     return NextResponse.redirect(
-      new URL("/dashboard/settings?success=connected", req.url)
+      new URL(`${returnTo}?success=google_connected`, url.origin)
     );
   } catch (error) {
     console.error("OAuth callback error:", error);
     return NextResponse.redirect(
-      new URL("/dashboard/settings?error=auth_failed", req.url)
+      new URL(`${returnTo}?error=auth_failed`, url.origin)
     );
   }
 }

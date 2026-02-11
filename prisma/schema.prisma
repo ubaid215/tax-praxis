@@ -183,7 +183,9 @@ model SyncLog {
   @@index([createdAt])
 }
 
-// ======= Google Calendar Integration
+
+// ======= Google Calendar Integration =======
+
 
 model GoogleAuth {
   id           Int      @id @default(autoincrement())
@@ -191,6 +193,23 @@ model GoogleAuth {
   calendarId   String   @default("primary")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+
+// ======= Odoo ERP Integration =======
+
+
+model OdooAuth {
+  id           Int      @id @default(autoincrement())
+  url          String   // Odoo instance URL
+  database     String   // Odoo database name
+  username     String   // Odoo username/email
+  isActive     Boolean  @default(true)
+  lastSyncedAt DateTime @default(now()) @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("odoo_auth")
 }
 
 

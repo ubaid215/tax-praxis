@@ -26,3 +26,21 @@ export async function GET() {
     );
   }
 }
+
+export async function POST() {
+  try {
+    // Delete all Google auth records
+    await prisma.googleAuth.deleteMany({});
+
+    return NextResponse.json({
+      success: true,
+      message: "Google Calendar disconnected successfully",
+    });
+  } catch (error) {
+    console.error("Error disconnecting Google Calendar:", error);
+    return NextResponse.json(
+      { error: "Failed to disconnect" },
+      { status: 500 }
+    );
+  }
+}
