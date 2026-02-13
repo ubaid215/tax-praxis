@@ -32,7 +32,7 @@ export async function POST() {
       };
 
       // Store connection in database
-      const odooAuth = await prisma.OdooAuth.upsert({
+      const odooAuth = await prisma.odooAuth.upsert({
         where: { id: 1 },
         update: {
           url: config.url,

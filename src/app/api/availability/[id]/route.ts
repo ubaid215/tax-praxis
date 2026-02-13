@@ -4,11 +4,13 @@ import { prisma } from "@/lib/prisma";
 // GET single availability
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const availability = await prisma.availability.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: {
           select: {
@@ -43,14 +45,15 @@ export async function GET(
 // UPDATE availability
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { startAt, endAt, slotDuration = 30 } = body;
 
     const availability = await prisma.availability.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { slots: true },
     });
 
@@ -72,7 +75,7 @@ export async function PATCH(
 
     // Delete old slots
     await prisma.timeSlot.deleteMany({
-      where: { availabilityId: params.id },
+      where: { availabilityId: id },
     });
 
     // Update availability
@@ -80,7 +83,7 @@ export async function PATCH(
     const endTime = new Date(endAt);
 
     const updatedAvailability = await prisma.availability.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         startAt: startTime,
         endAt: endTime,
@@ -96,7 +99,7 @@ export async function PATCH(
       
       if (slotEnd <= endTime) {
         slots.push({
-          availabilityId: params.id,
+          availabilityId: id,
           startTime: new Date(currentTime),
           endTime: slotEnd,
           isBooked: false,
@@ -115,18 +118,18 @@ export async function PATCH(
       data: {
         action: "UPDATE",
         entity: "Availability",
-        entityId: params.id,
+        entityId: id,
         userId: availability.userId,
         meta: {
-          startAt,
-          endAt,
+          startAt: new Date(startAt).toISOString(),
+          endAt: new Date(endAt).toISOString(),
           slotsUpdated: slots.length,
         },
       },
     });
 
     const completeAvailability = await prisma.availability.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         slots: {
           orderBy: { startTime: "asc" },
@@ -154,11 +157,13 @@ export async function PATCH(
 // DELETE availability
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const availability = await prisma.availability.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { slots: true },
     });
 
@@ -180,7 +185,7 @@ export async function DELETE(
 
     // Delete availability (cascade will delete slots)
     await prisma.availability.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     // Create audit log
@@ -188,10 +193,10 @@ export async function DELETE(
       data: {
         action: "DELETE",
         entity: "Availability",
-        entityId: params.id,
+        entityId: id,
         userId: availability.userId,
         meta: {
-          date: availability.date,
+          date: availability.date.toISOString(),
           slotsDeleted: availability.slots.length,
         },
       },

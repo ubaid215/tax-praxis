@@ -239,6 +239,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 7. Create audit log for final status
+    // Convert syncResults to a plain JSON-serializable object
     await prisma.auditLog.create({
       data: {
         action: "SYNC_COMPLETE",
@@ -249,7 +250,7 @@ export async function POST(request: NextRequest) {
           finalStatus,
           googleSuccess,
           odooSuccess,
-          syncResults,
+          syncResults: JSON.parse(JSON.stringify(syncResults)), // Ensure it's plain JSON
         },
       },
     });

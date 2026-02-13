@@ -1,6 +1,15 @@
 // types/availability.ts
 
-import { DayOfWeek } from '@prisma/client';
+// Define DayOfWeek enum manually since it's not in Prisma schema
+export enum DayOfWeek {
+  MONDAY = 'MONDAY',
+  TUESDAY = 'TUESDAY',
+  WEDNESDAY = 'WEDNESDAY',
+  THURSDAY = 'THURSDAY',
+  FRIDAY = 'FRIDAY',
+  SATURDAY = 'SATURDAY',
+  SUNDAY = 'SUNDAY',
+}
 
 export interface CreateAvailabilityRequest {
   userId: string;

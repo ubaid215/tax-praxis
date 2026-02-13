@@ -3,10 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { createCalendarEvent } from "@/lib/googleEvent";
 import { createOdooAppointment } from "@/lib/odoo";
 import { z } from "zod";
+import type { Booking, TimeSlot, Availability, User, Guest } from "@prisma/client";
 
 const syncRetrySchema = z.object({
   system: z.enum(["GOOGLE_CALENDAR", "ODOO"]),
 });
+
+type BookingWithRelations = Booking & {
+  slot: TimeSlot & {
+    availability: Availability & {
+      user: User;
+    };
+  };
+  guests: Guest[];
+};
 
 // POST /api/bookings/[id]/sync
 export async function POST(
@@ -85,7 +95,7 @@ interface SyncResult {
   error?: string;
 }
 
-async function syncWithGoogleCalendar(booking: any, isRetry = false): Promise<SyncResult> {
+async function syncWithGoogleCalendar(booking: BookingWithRelations, isRetry = false): Promise<SyncResult> {
   try {
     const event = await createCalendarEvent({
       summary: `Meeting with ${booking.fullName}`,
@@ -97,7 +107,7 @@ async function syncWithGoogleCalendar(booking: any, isRetry = false): Promise<Sy
           email: booking.email,
           displayName: booking.fullName 
         },
-        ...(booking.guests || []).map((guest: any) => ({
+        ...booking.guests.map((guest) => ({
           email: guest.email,
           displayName: guest.email.split('@')[0],
         })),
@@ -128,49 +138,50 @@ async function syncWithGoogleCalendar(booking: any, isRetry = false): Promise<Sy
     });
 
     return { success: true, eventId: event.id };
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     await prisma.syncLog.create({
       data: {
         bookingId: booking.id,
         system: "GOOGLE_CALENDAR",
         action: isRetry ? "RETRY_CREATE" : "CREATE",
         status: "FAILED",
-        error: error?.message || String(error),
+        error: errorMessage,
       },
     });
 
     return { 
       success: false, 
-      error: error?.message || String(error) 
+      error: errorMessage
     };
   }
 }
 
-async function syncWithOdoo(booking: any, isRetry = false): Promise<SyncResult> {
+async function syncWithOdoo(booking: BookingWithRelations, isRetry = false): Promise<SyncResult> {
   try {
-    const user = booking.slot?.availability?.user;
-    if (!user?.odooUserId || !user?.odooApiKey) {
+    const user = booking.slot.availability.user;
+    if (!user.odooUserId || !user.odooApiKey) {
       return { 
         success: false, 
         error: "User not configured for Odoo" 
       };
     }
 
-    const appointment = await createOdooAppointment({
-      userId: user.odooUserId,
-      apiKey: user.odooApiKey,
-      customerName: booking.fullName,
-      customerEmail: booking.email,
-      customerPhone: booking.phone,
+    // createOdooAppointment returns the appointment ID as a number
+    const appointmentId = await createOdooAppointment({
+      fullName: booking.fullName,
+      email: booking.email,
+      phone: booking.phone,
       startTime: booking.slot.startTime,
       endTime: booking.slot.endTime,
-      notes: booking.notes,
+      notes: booking.notes || undefined,
     });
 
     await prisma.booking.update({
       where: { id: booking.id },
       data: {
-        odooAppointmentId: appointment.id,
+        odooAppointmentId: appointmentId,
         odooSyncedAt: new Date(),
       },
     });
@@ -181,25 +192,27 @@ async function syncWithOdoo(booking: any, isRetry = false): Promise<SyncResult> 
         system: "ODOO",
         action: isRetry ? "RETRY_CREATE" : "CREATE",
         status: "SUCCESS",
-        metadata: { appointmentId: appointment.id },
+        metadata: { appointmentId },
       },
     });
 
-    return { success: true, appointmentId: appointment.id };
-  } catch (error: any) {
+    return { success: true, appointmentId };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     await prisma.syncLog.create({
       data: {
         bookingId: booking.id,
         system: "ODOO",
         action: isRetry ? "RETRY_CREATE" : "CREATE",
         status: "FAILED",
-        error: error?.message || String(error),
+        error: errorMessage,
       },
     });
 
     return { 
       success: false, 
-      error: error?.message || String(error) 
+      error: errorMessage
     };
   }
 }
