@@ -3,6 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { createCalendarEvent } from "@/lib/googleEvent";
 import { createOdooAppointment, odooClient } from "@/lib/odoo";
 
+// Define proper types for sync results
+interface GoogleSyncResult {
+  eventId: string;
+  link: string;
+  meetLink?: string;
+}
+
+interface OdooSyncResult {
+  appointmentId: number;
+}
+
+interface SyncResults {
+  google: GoogleSyncResult | null;
+  odoo: OdooSyncResult | null;
+}
+
 export async function GET() {
   try {
     const bookings = await prisma.booking.findMany({
@@ -64,7 +80,7 @@ export async function POST(request: NextRequest) {
         meta: {
           fullName: booking.fullName,
           email: booking.email,
-          slotTime: booking.slot.startTime,
+          slotTime: booking.slot.startTime.toISOString(), // Convert Date to string for JSON
         },
       },
     });
@@ -72,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Track sync results
     let googleSuccess = false;
     let odooSuccess = false;
-    const syncResults: any = {
+    const syncResults: SyncResults = {
       google: null,
       odoo: null,
     };
@@ -118,12 +134,18 @@ export async function POST(request: NextRequest) {
           status: "SUCCESS",
           metadata: {
             eventId: event.id,
-            hangoutLink: event.hangoutLink,
+            hangoutLink: event.hangoutLink || null,
           },
         },
       });
     } catch (googleError) {
       console.error("Google Calendar sync failed:", googleError);
+
+      // Check if it's a network error
+      const isNetworkError = 
+        googleError instanceof Error && 
+        (googleError.message.includes('ENOTFOUND') || 
+         googleError.message.includes('fetch failed'));
 
       // Log failed Google sync
       await prisma.syncLog.create({
@@ -134,7 +156,9 @@ export async function POST(request: NextRequest) {
           status: "FAILED",
           error:
             googleError instanceof Error
-              ? googleError.message
+              ? isNetworkError 
+                ? "Network error: Cannot reach Google servers. Check your internet connection or firewall settings."
+                : googleError.message
               : String(googleError),
         },
       });
@@ -181,6 +205,12 @@ export async function POST(request: NextRequest) {
       } catch (odooError) {
         console.error("Odoo sync failed:", odooError);
 
+        // Check if it's a network error
+        const isNetworkError = 
+          odooError instanceof Error && 
+          (odooError.message.includes('ENOTFOUND') || 
+           odooError.message.includes('fetch failed'));
+
         // Log failed Odoo sync
         await prisma.syncLog.create({
           data: {
@@ -189,7 +219,11 @@ export async function POST(request: NextRequest) {
             action: "CREATE",
             status: "FAILED",
             error:
-              odooError instanceof Error ? odooError.message : String(odooError),
+              odooError instanceof Error 
+                ? isNetworkError
+                  ? "Network error: Cannot reach Odoo servers. Check your internet connection or firewall settings."
+                  : odooError.message
+                : String(odooError),
           },
         });
       }
