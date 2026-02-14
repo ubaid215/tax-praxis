@@ -513,54 +513,54 @@ const TheProblemWeSolve = () => {
           ))}
         </div>
 
-        {/* Solution Teaser - Mobile First */}
+        {/* Solution Teaser - Improved Mobile Layout */}
         <div 
           ref={solutionRef} 
-          className="bg-gradient-to-br from-gray-900 to-gray-800 p-5 sm:p-6 md:p-8 lg:p-12 xl:p-16 rounded-xl sm:rounded-2xl shadow-2xl"
+          className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 sm:p-8 md:p-10 lg:p-12 xl:p-16 rounded-xl sm:rounded-2xl shadow-2xl"
         >
           <div className="max-w-3xl mx-auto text-center">
-            <h3 className="solution-title text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-3 sm:mb-4 md:mb-6 px-4">
+            <h3 className="solution-title text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-3 sm:mb-4 md:mb-6">
               There&apos;s a{" "}
-              <span className="italic font-serif text-blue-400 font-normal block sm:inline">
+              <span className="italic font-serif text-blue-400 font-normal block sm:inline mt-1 sm:mt-0">
                 better way
               </span>
             </h3>
 
-            <p className="solution-description text-sm sm:text-base md:text-lg text-gray-300 mb-6 sm:mb-7 md:mb-8 lg:mb-10 leading-relaxed px-4">
+            <p className="solution-description text-sm sm:text-base md:text-lg text-gray-300 mb-6 sm:mb-7 md:mb-8 lg:mb-10 leading-relaxed">
               You don&apos;t have to navigate this alone. With Tax Praxis, you gain a partner who transforms these problems into opportunities for savings, growth, and peace of mind.
             </p>
 
             {/* Stats Grid - Responsive */}
-            <div className="grid grid-cols-1 xs:grid-cols-3 gap-4 sm:gap-5 md:gap-6 lg:gap-8 mb-6 sm:mb-7 md:mb-8 lg:mb-10 px-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-5 md:gap-6 lg:gap-8 mb-6 sm:mb-7 md:mb-8 lg:mb-10">
               <div className="solution-stat text-center">
-                <div className="solution-stat-number text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
+                <div className="solution-stat-number text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
                   $2.3M
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
+                <div className="text-[9px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
                   Average Saved
                 </div>
               </div>
               <div className="solution-stat text-center">
-                <div className="solution-stat-number text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
+                <div className="solution-stat-number text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
                   150+
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
+                <div className="text-[9px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
                   Hours Reclaimed
                 </div>
               </div>
               <div className="solution-stat text-center">
-                <div className="solution-stat-number text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
+                <div className="solution-stat-number text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold text-blue-400 mb-1 sm:mb-2">
                   100%
                 </div>
-                <div className="text-[10px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
+                <div className="text-[9px] sm:text-xs md:text-sm text-gray-400 uppercase tracking-wider">
                   Compliance Rate
                 </div>
               </div>
             </div>
 
-            <div className="solution-button px-4">
-              <Link href={'/booking'} className="block sm:inline-block">
-                <button className="w-full sm:w-auto px-6 sm:px-7 md:px-8 py-3 sm:py-3.5 md:py-4 bg-blue-600 text-white font-semibold rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95 text-sm sm:text-base whitespace-nowrap">
+            <div className="solution-button">
+              <Link href={'/booking'}>
+                <button className="px-6 sm:px-8 md:px-10 py-3 sm:py-3.5 md:py-4 bg-blue-600 text-white font-semibold rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95 text-sm sm:text-base whitespace-nowrap">
                   Get Consultation
                 </button>
               </Link>

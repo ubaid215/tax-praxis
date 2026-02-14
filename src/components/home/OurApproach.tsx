@@ -365,32 +365,32 @@ const OurApproach = () => {
           ))}
         </div>
 
-        {/* Bottom CTA Section - Mobile First */}
+        {/* Bottom CTA Section - Improved Mobile Layout */}
         <div 
           ref={ctaSectionRef}
           className="mt-12 sm:mt-14 md:mt-16 lg:mt-20 p-6 sm:p-8 md:p-10 lg:p-12 xl:p-16 bg-gray-900 rounded-xl sm:rounded-2xl shadow-xl text-center"
         >
-          <h3 className="cta-heading text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-3 sm:mb-4 md:mb-6 px-4">
+          <h3 className="cta-heading text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-3 sm:mb-4 md:mb-6">
             Ready to experience the{" "}
-            <span className="italic font-serif text-blue-400 font-normal block sm:inline">
+            <span className="italic font-serif text-blue-400 font-normal block sm:inline mt-1 sm:mt-0">
               difference?
             </span>
           </h3>
 
-          <p className="cta-description text-sm sm:text-base md:text-lg text-gray-300 mb-6 sm:mb-7 md:mb-8 lg:mb-10 max-w-2xl mx-auto leading-relaxed px-4">
+          <p className="cta-description text-sm sm:text-base md:text-lg text-gray-300 mb-6 sm:mb-7 md:mb-8 lg:mb-10 max-w-2xl mx-auto leading-relaxed">
             Let&apos;s discuss how our approach can transform your tax situation and unlock financial opportunities you didn&apos;t know existed.
           </p>
 
-          {/* Buttons - Stack on mobile */}
-          <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0">
-            <Link href={"/booking"} className="w-full xs:w-auto">
-              <button className="cta-button w-full xs:w-auto px-6 sm:px-7 md:px-8 py-3 sm:py-3.5 md:py-4 bg-blue-600 text-white font-semibold rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95 text-sm sm:text-base whitespace-nowrap">
+          {/* Buttons - Side by side on mobile with better spacing */}
+          <div className="flex flex-row gap-2.5 sm:gap-3 md:gap-4 justify-center max-w-md mx-auto">
+            <Link href={"/booking"} className="flex-1 sm:flex-none">
+              <button className="cta-button w-full sm:w-auto px-4 sm:px-7 md:px-8 py-2.5 sm:py-3.5 md:py-4 bg-blue-600 text-white font-semibold rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95 text-xs sm:text-base whitespace-nowrap">
                 Schedule Consultation
               </button>
             </Link>
-            <Link href={'/fees'} className="w-full xs:w-auto">
-              <button className="cta-button w-full xs:w-auto px-6 sm:px-7 md:px-8 py-3 sm:py-3.5 md:py-4 bg-white text-gray-900 font-semibold rounded-lg sm:rounded-xl border border-gray-200 hover:bg-gray-50 transition-all active:scale-95 text-sm sm:text-base whitespace-nowrap">
-                View Our Services
+            <Link href={'/fees'} className="flex-1 sm:flex-none">
+              <button className="cta-button w-full sm:w-auto px-4 sm:px-7 md:px-8 py-2.5 sm:py-3.5 md:py-4 bg-white text-gray-900 font-semibold rounded-lg sm:rounded-xl border border-gray-200 hover:bg-gray-50 transition-all active:scale-95 text-xs sm:text-base whitespace-nowrap">
+                View Services
               </button>
             </Link>
           </div>

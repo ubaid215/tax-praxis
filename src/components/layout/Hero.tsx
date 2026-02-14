@@ -194,15 +194,15 @@ const Hero = () => {
               possibilities.
             </p>
 
-            {/* Primary Actions - Stack on mobile */}
-            <div ref={buttonsRef} className="flex flex-col xs:flex-row gap-3 sm:gap-4">
-              <Link href={"/personal"} className="w-full xs:w-auto">
-                <button className="w-full xs:w-auto px-6 sm:px-7 md:px-8 py-3 sm:py-3.5 md:py-4 bg-[#111827] text-white font-semibold rounded-lg sm:rounded-xl hover:bg-black transition-all shadow-lg active:scale-95 text-sm sm:text-base text-center whitespace-nowrap">
+            {/* Primary Actions - Improved mobile layout */}
+            <div ref={buttonsRef} className="flex flex-row gap-2.5 sm:gap-3 md:gap-4">
+              <Link href={"/personal"}>
+                <button className="px-5 sm:px-7 md:px-8 py-2.5 sm:py-3.5 md:py-4 bg-[#111827] text-white font-semibold rounded-lg sm:rounded-xl hover:bg-black transition-all shadow-lg active:scale-95 text-sm sm:text-base whitespace-nowrap">
                   Personal
                 </button>
               </Link>
-              <Link href={'/business'} className="w-full xs:w-auto">
-                <button className="w-full xs:w-auto px-6 sm:px-7 md:px-8 py-3 sm:py-3.5 md:py-4 bg-white text-gray-900 font-semibold rounded-lg sm:rounded-xl border border-gray-200 hover:border-gray-900 transition-all active:scale-95 text-sm sm:text-base text-center whitespace-nowrap">
+              <Link href={'/business'}>
+                <button className="px-5 sm:px-7 md:px-8 py-2.5 sm:py-3.5 md:py-4 bg-white text-gray-900 font-semibold rounded-lg sm:rounded-xl border border-gray-200 hover:border-gray-900 transition-all active:scale-95 text-sm sm:text-base whitespace-nowrap">
                   Business
                 </button>
               </Link>
@@ -279,49 +279,49 @@ const Hero = () => {
           </div>
         </div>
 
-        {/* Partner Logos - Responsive */}
+        {/* Partner Logos - Improved mobile layout */}
         <div 
           ref={partnersRef}
-          className="mt-12 sm:mt-16 md:mt-20 lg:mt-24 xl:mt-32 py-6 sm:py-8 md:py-10 px-3 sm:px-4 md:px-0 border-y bg-gray-200 rounded-xl sm:rounded-2xl border-gray-100"
+          className="mt-12 sm:mt-16 md:mt-20 lg:mt-24 xl:mt-32 py-5 sm:py-8 md:py-10 px-4 sm:px-6 md:px-8 border-y bg-white rounded-xl sm:rounded-2xl border-gray-200"
         >
-          <div className="grid grid-cols-2 sm:grid-cols-4 place-items-center gap-4 sm:gap-5 md:gap-6 opacity-90 grayscale">
-            <div className="partner-logo w-full flex justify-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 md:gap-10 items-center">
+            <div className="partner-logo flex items-center justify-center">
               <Image
                 src="/partners/logo_ntaa.webp"
                 alt="NTAA"
-                width={200}
+                width={160}
                 height={40}
-                className="object-contain w-auto h-6 sm:h-7 md:h-8 lg:h-10"
+                className="object-contain w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] h-auto opacity-60 hover:opacity-100 transition-opacity grayscale hover:grayscale-0"
               />
             </div>
 
-            <div className="partner-logo w-full flex justify-center">
+            <div className="partner-logo flex items-center justify-center">
               <Image
                 src="/partners/logo_ntaa-copy.webp"
                 alt="NTAA Copy"
-                width={200}
+                width={160}
                 height={40}
-                className="object-contain w-auto h-6 sm:h-7 md:h-8 lg:h-10"
+                className="object-contain w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] h-auto opacity-60 hover:opacity-100 transition-opacity grayscale hover:grayscale-0"
               />
             </div>
 
-            <div className="partner-logo w-full flex justify-center">
+            <div className="partner-logo flex items-center justify-center">
               <Image
                 src="/partners/smsf.webp"
                 alt="SMSF"
-                width={110}
+                width={90}
                 height={40}
-                className="object-contain w-auto h-6 sm:h-7 md:h-8 lg:h-10"
+                className="object-contain w-auto max-w-[80px] sm:max-w-[90px] md:max-w-[100px] h-auto opacity-60 hover:opacity-100 transition-opacity grayscale hover:grayscale-0"
               />
             </div>
 
-            <div className="partner-logo w-full flex justify-center">
+            <div className="partner-logo flex items-center justify-center">
               <Image
                 src="/partners/Tax-institute.webp"
                 alt="Tax Institute"
-                width={200}
+                width={160}
                 height={40}
-                className="object-contain w-auto h-6 sm:h-7 md:h-8 lg:h-10"
+                className="object-contain w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] h-auto opacity-60 hover:opacity-100 transition-opacity grayscale hover:grayscale-0"
               />
             </div>
           </div>
